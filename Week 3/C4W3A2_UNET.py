@@ -251,7 +251,7 @@ unet.compile(optimizer='adam',
              loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
              metrics=['Accuracy'])
 
-# traning the model
+# training the model
 EPOCHS = 40
 VAL_SUBSPLITS = 5
 BUFFER_SIZE = 500
@@ -260,3 +260,20 @@ processed_image_ds.batch(BATCH_SIZE)
 train_dataset = processed_image_ds.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
 print(processed_image_ds.element_spec)
 model_history = unet.fit(train_dataset, epochs=EPOCHS)
+
+
+def create_mask(pred_mask):
+    """
+    Uses tf.argmax in the axis of the number of classes to return the index with the largest value and
+    merge the prediction into a single image
+    :param pred_mask: tensor, creates mask for the
+    :return:
+    pred_mask: predicted mask from the model
+    """
+    pred_mask = tf.argmax(pred_mask, axis=-1)
+    pred_mask = pred_mask[..., tf.newaxis]
+    return pred_mask[0]
+
+
+# plotting the model accuracy
+plt.plot(model_history.history['accuracy'])
