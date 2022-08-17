@@ -19,6 +19,7 @@ import numpy as np
 import typing
 import tensorflow as tf
 from tensorflow import keras
+
 if typing.TYPE_CHECKING:
     from keras.api._v2 import keras
 
@@ -27,14 +28,12 @@ import pprint
 
 "#####====== Transfer Learning. Loading pre trained model =====#####"
 
-
 img_size = 400
 vgg = keras.applications.VGG19(include_top=False,
                                input_shape=(img_size, img_size, 3))
 vgg.trainable = False
 
 "#####====== Neural Style Transfer: Cost functions =====#####"
-
 
 ROOT_DIR = os.getcwd()
 img_dir = os.path.join(ROOT_DIR, 'images')
@@ -47,6 +46,7 @@ content_image = Image.open(fname)
 
 fname = os.path.join(img_dir, 'monet.jpg')
 style_image = Image.open(fname)
+
 
 # see the style image
 # plt.imshow(style_image)
@@ -72,7 +72,7 @@ def compute_content_cost(content_output, generated_output):
     a_G_unrolled = tf.reshape(a_G, shape=[m, -1, n_C])
 
     # calculating the cost function
-    J_content = tf.reduce_sum(tf.square(a_G_unrolled-a_C_unrolled))/(4.0 * n_W *n_H *n_C)
+    J_content = tf.reduce_sum(tf.square(a_G_unrolled - a_C_unrolled)) / (4.0 * n_W * n_H * n_C)
 
     return J_content
 
@@ -109,7 +109,7 @@ def compute_layer_style_cost(a_S, a_G):
     GG = gram_matrix(a_G_unrolled)
 
     # computing the style function
-    J_style_layer = tf.reduce_sum(tf.square(GS-GG))/(4.0 * ((n_H * n_W * n_C)**2))
+    J_style_layer = tf.reduce_sum(tf.square(GS - GG)) / (4.0 * ((n_H * n_W * n_C) ** 2))
 
     return J_style_layer
 
@@ -175,7 +175,6 @@ def total_cost(J_content, J_style, alpha=10, beta=40):
 
 "#####====== Solving the optimization problem =====#####"
 
-
 # conditioning the content image
 content_image = np.array(content_image.resize((img_size, img_size)))
 content_image = tf.constant(np.reshape(content_image, ((1,) + content_image.shape)))
@@ -204,12 +203,113 @@ def get_layer_outputs(vgg, layer_names):
     model = tf.keras.Model([vgg.input], outputs)
     return model
 
+
 content_layer = [('block5_conv4', 1)]
 vgg_model_outputs = get_layer_outputs(vgg, STYLE_LAYERS + content_layer)
 
-print(len(vgg_model_outputs.output))
-
 # saving the content and style output
-content_target = vgg_model_outputs(content_image)  # Content encoder
-style_targets = vgg_model_outputs(style_image)     # Style enconder
+# Content encoder
+content_target = vgg_model_outputs(content_image)
+# Style enconder
+style_targets = vgg_model_outputs(style_image)
+# generated encoder
+generated_target = vgg_model_outputs(generated_image)
 
+# computing the content cost function. We will be using the 'block5_conv4' for content which is last in the list
+preprocessed_content = tf.Variable(tf.image.convert_image_dtype(content_image, tf.float32))
+a_C = vgg_model_outputs(preprocessed_content)[-1]
+a_CG = generated_target[-1]
+J_content = compute_content_cost(a_C, a_CG)
+print(J_content)
+
+# computing the style cost function
+preprocessed_style = tf.Variable(tf.image.convert_image_dtype(style_image, tf.float32))
+a_S = vgg_model_outputs(preprocessed_style)
+a_SG = generated_target
+
+# Compute the style cost
+J_style = compute_style_cost(a_S, a_SG)
+print(J_style)
+
+
+def clip_0_1(image):
+    """
+    Truncate all the pixels in the tensor to be between 0 and 1
+    :param image: tensor
+    :return:
+    tensor
+    """
+    return tf.clip_by_value(image, clip_value_min=0.0, clip_value_max=1.0)
+
+
+def tensor_to_image(tensor):
+    """
+    Converts the given tensor into a PIL image
+    :param tensor: tensor
+    :return:
+    Image: A PIL image
+    """
+    tensor = tensor * 255
+    tensor = np.array(tensor, dtype=np.uint8)
+    if np.ndim(tensor) > 3:
+        assert tensor.shape[0] == 1
+        tensor = tensor[0]
+    return Image.fromarray(tensor)
+
+
+"#####====== Training step =====#####"
+
+optimizer = keras.optimizers.Adam(learning_rate=0.03)
+
+
+@tf.function()
+def train_step(generated_image, alpha=10, beta=40):
+    """
+    Implementing the training step for transfer learning
+    :param generated_image: tensor, generated image to be optimized
+    :param alpha: scalar, parameter with J_content
+    :param beta: scalar, parameter with J_style
+    :return:
+    J: total cost function
+    """
+    with tf.GradientTape() as tape:
+        # computing the output of generated image at different stages
+        a_G = vgg_model_outputs(generated_image)
+        # computing the style cost function
+        J_style = compute_style_cost(a_S, a_G)
+        # computing the content cost function
+        J_content = compute_content_cost(a_C, a_G[-1])
+        # computing the total cost function
+        J = total_cost(J_content, J_style, alpha, beta)
+
+    grad = tape.gradient(J, generated_image)
+
+    optimizer.apply_gradients([(grad, generated_image)])
+    generated_image.assign(clip_0_1(generated_image))
+
+    return J
+
+
+generated_image = tf.Variable(tf.image.convert_image_dtype(content_image, tf.float32))
+epochs = 2501
+for i in range(epochs):
+    train_step(generated_image, alpha=100, beta=10**2)
+    if i % 250 == 0:
+        print(f"Epoch {i} ")
+    if i % 250 == 0:
+        image = tensor_to_image(generated_image)
+        imshow(image)
+        plt.show()
+
+
+fig = plt.figure(figsize=(16, 4))
+ax = fig.add_subplot(1, 3, 1)
+imshow(content_image[0])
+ax.title.set_text('Content image')
+ax = fig.add_subplot(1, 3, 2)
+imshow(style_image[0])
+ax.title.set_text('Style image')
+ax = fig.add_subplot(1, 3, 3)
+imshow(generated_image[0])
+ax.title.set_text('Generated image')
+plt.show()
