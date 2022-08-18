@@ -79,3 +79,35 @@ Assignment 2: Unet
     2. The CameraRGB is the actual image dataset. It is of shape (600, 800, 3).
     3. The CameraSeg folder consists of the corresponding masks. It is of the shape (600, 800, 3). However, only the first channel has the data (label) in it. There are 13 different classes in the masked dataset.
 - [Here](https://www.kaggle.com/code/oluwatobiojekanmi/carla-image-semantic-segmentation-with-u-net/notebook) is a similar notebook for Image Semantic Segmentation with U-Net on complete CARLA dataset along with splitting of the dataset into training, validation and test dataset.
+
+# C4W4 Assignments
+
+Aim: Face recognition and Neural style transfer.
+
+Number of assignments: 2 (Face Recognition and Neural Style Transfer)
+
+Important links: [keras_facenet_model](https://drive.google.com/drive/folders/1pwQ3H4aJ8a6yyJHZkTwtjcL4wYWQb7bn)
+
+Assignment 1: Face Recognition
+
+- Differentiate between face recognition and face verification.
+- Implement one-shot learning to solve a face recognition problem.
+- Apply the triplet loss function to learn a network's parameters in the context of face recognition.
+- Explain how to pose face recognition as a binary classification problem.
+- Map face images into 128-dimensional encodings using a pretrained model.
+- Perform face verification and face recognition with these encodings.
+- Dataset: [Images to test the verification on](https://github.com/kp3393/coursera-deep-learning-specialization/tree/master/C4%20-%20Convolutional%20Neural%20Networks/Week%204/Face%20Recognition/images)
+  - Pre-trained model is used
+  - Assignment focuses more on how to use hte pretained model face recognition and verification problem.
+- **Note**: Loading the "model.h5" on the local interpreter with python v3.9 and TensorFlow version 2.9.1 throws a value error "ValueError:bad marshal data".
+It is recommended to run this assignment using google colab or use python v3.7.13 and TensorFlow 2.8.2
+
+Assignment 2: Neural Style Transfer
+
+- Implement the neural style transfer algorithm
+- Generate novel artistic images using the algorithm
+- Define the style cost function for Neural Style Transfer
+- Define the content cost function for Neural Style Transfer
+- Pre-trained VGG19 model was used.
+- Learned about implementing style cost function, content cost function and optimization of the defined cost function.
+- No particular dataset to train on as a pre trained model was used. One can choose the content and style image to play around.
